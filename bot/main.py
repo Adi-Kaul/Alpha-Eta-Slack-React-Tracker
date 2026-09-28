@@ -29,6 +29,8 @@ log = logging.getLogger("reacttracker")
 def build_tracker(cfg: Config, client: WebClient) -> Tracker:
     watch = resolve_channel(client, cfg.watch_channel)
     remind = resolve_channel(client, cfg.reminder_channel)
+    if watch == remind:
+        raise SystemExit("watch_channel and reminder_channel must be different channels")
     roster, unresolved = resolve_members(client, cfg.members)
     log.info("Watching %s, reminding in %s, roster of %d", cfg.watch_channel, cfg.reminder_channel, len(roster))
     if unresolved:

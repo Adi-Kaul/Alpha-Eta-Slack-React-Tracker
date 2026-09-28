@@ -125,6 +125,10 @@ class Tracker:
     # ---- writing ----
 
     def _post(self, channel: str, text: str) -> None:
+        # The announcements channel is read-only: never post there, whatever the config says.
+        if channel == self.watch_channel:
+            log.error("Refusing to post in the watched channel %s", channel)
+            return
         if self.cfg.dry_run:
             log.info("[dry run] would post to %s:\n%s", channel, text)
             return

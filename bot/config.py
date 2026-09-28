@@ -64,7 +64,7 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
         raise ValueError(f"{path} has no members listed")
 
     cfg = Config(**raw)
-    cfg.bot_token = os.environ.get("SLACK_BOT_TOKEN", "")
-    cfg.app_token = os.environ.get("SLACK_APP_TOKEN", "")
+    cfg.bot_token = os.environ.get("SLACK_BOT_TOKEN", "").strip()  # pasted values often carry a trailing newline
+    cfg.app_token = os.environ.get("SLACK_APP_TOKEN", "").strip()  # pasted values often carry a trailing newline
     cfg.dry_run = cfg.dry_run or os.environ.get("DRY_RUN", "").lower() in ("1", "true", "yes")
     return cfg
