@@ -24,16 +24,14 @@ class Config:
     # Which broadcast mentions mark a message as an announcement to track.
     mentions: list[str] = field(default_factory=lambda: ["channel"])
 
-    first_reminder_after_hours: float = 12
-    reminder_interval_hours: float = 24
-    stop_after_hours: float = 72
+    # Everyone has this long after an announcement is posted to react.
+    deadline_hours: float = 24
+    # Posts to the reminder channel, each tagging whoever still hasn't reacted:
+    halfway_report: bool = True                 # halfway to the deadline
+    warn_hours_before: list[float] = field(default_factory=lambda: [4, 1])
+    final_report: bool = True                   # at the deadline: who never reacted
 
-    # Reminders are held (not skipped) during quiet hours, then sent once they end.
-    timezone: str = "America/Detroit"
-    quiet_hours_start: int | None = 23
-    quiet_hours_end: int | None = 9
-
-    check_interval_minutes: float = 15
+    check_interval_minutes: float = 5
     # Don't nag whoever posted the announcement.
     exclude_poster: bool = True
     dm_missing: bool = False

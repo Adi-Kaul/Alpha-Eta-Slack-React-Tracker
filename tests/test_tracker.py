@@ -6,11 +6,10 @@ import pytest
 from bot.config import Config
 from bot.resolve import resolve_channel, resolve_members
 from bot.store import Store
-from bot.tracker import Tracker, in_quiet_hours, is_announcement, reacted_users, reminder_due, snippet
+from bot.tracker import Tracker, checkpoints, fmt_duration, is_announcement, reacted_users, snippet
 
 HOUR = 3600
-# A Wednesday at 2pm Detroit time, safely outside default quiet hours.
-NOON = datetime(2026, 9, 30, 14, 0, tzinfo=ZoneInfo("America/Detroit")).timestamp()
+NOON = datetime(2026, 9, 30, 12, 0, tzinfo=ZoneInfo("America/Detroit")).timestamp()
 
 
 class FakeClient:
@@ -43,8 +42,7 @@ class FakeClient:
 
 
 def make_cfg(**kw):
-    base = dict(watch_channel="C_ANN", reminder_channel="C_SLACK", members=["x"],
-                quiet_hours_start=None, quiet_hours_end=None)
+    base = dict(watch_channel="C_ANN", reminder_channel="C_SLACK", members=["x"])
     base.update(kw)
     return Config(**base)
 
@@ -92,120 +90,150 @@ def test_snippet_strips_mention_and_truncates():
     assert len(snippet("<!channel> " + "a" * 200)) == 90
 
 
-def test_reminder_schedule():
-    cfg = make_cfg(first_reminder_after_hours=12, reminder_interval_hours=24, stop_after_hours=72)
+def test_checkpoints_default_schedule():
+    cfg = make_cfg()  # 24h deadline, halfway, 4h + 1h warnings, final
     t0 = 1_000_000.0
-    assert not reminder_due(cfg, t0, None, t0 + 11 * HOUR)
-    assert reminder_due(cfg, t0, None, t0 + 12 * HOUR)
-    assert not reminder_due(cfg, t0, t0 + 12 * HOUR, t0 + 30 * HOUR)
-    assert reminder_due(cfg, t0, t0 + 12 * HOUR, t0 + 36 * HOUR)
-    assert not reminder_due(cfg, t0, t0 + 60 * HOUR, t0 + 90 * HOUR)  # past stop_after
+    assert checkpoints(cfg, t0) == [
+        ("halfway", t0 + 12 * HOUR), ("warn:4", t0 + 20 * HOUR),
+        ("warn:1", t0 + 23 * HOUR), ("deadline", t0 + 24 * HOUR),
+    ]
 
 
-def test_quiet_hours_wrap_midnight():
-    cfg = make_cfg(quiet_hours_start=23, quiet_hours_end=9, timezone="America/Detroit")
-    at = lambda h: datetime(2026, 9, 30, h, 30, tzinfo=ZoneInfo("America/Detroit")).timestamp()
-    assert in_quiet_hours(cfg, at(23))
-    assert in_quiet_hours(cfg, at(3))
-    assert not in_quiet_hours(cfg, at(9))
-    assert not in_quiet_hours(cfg, at(14))
+def test_checkpoints_drop_warnings_before_post():
+    cfg = make_cfg(deadline_hours=3)  # 4h warning can't happen; 1h warning lands after halfway
+    assert [k for k, _ in checkpoints(cfg, 0)] == ["halfway", "warn:1", "deadline"]
+
+
+def test_fmt_duration():
+    assert fmt_duration(4) == "4 hours"
+    assert fmt_duration(1) == "1 hour"
+    assert fmt_duration(1.5) == "1 hour 30 min"
+    assert fmt_duration(0.25) == "15 min"
 
 
 # ---- full cycle ----
 
-def test_reminds_only_missing_members_after_delay():
-    posted_at = NOON - 13 * HOUR
-    client = FakeClient(messages=[ann(posted_at), {"ts": f"{posted_at + 5:.6f}", "text": "normal msg"}],
-                        reactions={f"{posted_at:.6f}": [{"name": "scream", "users": ["U1"]}]})
-    now = [NOON]
+def run_at(tr, now, t):
+    now[0] = t
+    return tr.run_cycle()
+
+
+def test_full_schedule_pings_only_missing_people():
+    t0 = NOON
+    ts = f"{t0:.6f}"
+    client = FakeClient(messages=[ann(t0), {"ts": f"{t0 + 5:.6f}", "text": "normal msg"}],
+                        reactions={ts: [{"name": "scream", "users": ["U1"]}]})
+    now = [t0]
     tr = make_tracker(client, now)
 
-    tr.run_cycle()
-    assert len(client.posted) == 1
-    channel, text = client.posted[0]
-    assert channel == "C_SLACK"
-    assert "<@U2> <@U3>" in text and "<@U1>" not in text
-    assert "(1/3 done)" in text
+    run_at(tr, now, t0 + 1 * HOUR)
+    assert client.posted == []  # nothing due yet
+
+    run_at(tr, now, t0 + 12 * HOUR)
+    ch, text = client.posted[-1]
+    assert ch == "C_SLACK"
+    assert "Halfway check" in text and "1/3" in text and "12 hours left" in text
+    assert "*Still missing (2):* <@U2> <@U3>" in text
     assert "meeting tonight at 7" in text
 
-    # Next check 15 min later: not due again yet.
-    now[0] += 900
-    tr.run_cycle()
+    run_at(tr, now, t0 + 12.1 * HOUR)
+    assert len(client.posted) == 1  # halfway not repeated
+
+    client.reactions[ts].append({"name": "scream", "users": ["U2"]})
+    run_at(tr, now, t0 + 20 * HOUR)
+    assert ":warning: *4 hours left*" in client.posted[-1][1]
+    assert "<@U3>" in client.posted[-1][1] and "<@U2>" not in client.posted[-1][1]
+
+    run_at(tr, now, t0 + 23 * HOUR)
+    assert ":rotating_light: *1 hour left*" in client.posted[-1][1]
+
+    run_at(tr, now, t0 + 24 * HOUR)
+    assert "Time's up!" in client.posted[-1][1]
+    assert "*Didn't react:* <@U3>" in client.posted[-1][1]
+    assert len(client.posted) == 4
+
+    run_at(tr, now, t0 + 25 * HOUR)
+    assert len(client.posted) == 4
+
+
+def test_missed_checkpoints_only_post_latest():
+    t0 = NOON
+    client = FakeClient(messages=[ann(t0)])
+    now = [t0]
+    tr = make_tracker(client, now)
+    run_at(tr, now, t0 + 21 * HOUR)  # bot was down through halfway and the 4h warning
+    assert len(client.posted) == 1 and "4 hours" not in client.posted[0][1]
+    assert "3 hours left" in client.posted[0][1]
+    run_at(tr, now, t0 + 21.5 * HOUR)
     assert len(client.posted) == 1
 
-    # A day later, U2 has reacted -> only U3 gets pinged.
-    client.reactions[f"{posted_at:.6f}"].append({"name": "scream", "users": ["U2"]})
-    now[0] += 24 * HOUR
-    tr.run_cycle()
-    assert len(client.posted) == 2
-    assert "<@U3>" in client.posted[1][1] and "<@U2>" not in client.posted[1][1]
 
-
-def test_no_reminder_before_first_delay():
-    client = FakeClient(messages=[ann(NOON - 2 * HOUR)])
-    tr = make_tracker(client, [NOON])
-    tr.run_cycle()
-    assert client.posted == []
-
-
-def test_force_ignores_schedule():
-    client = FakeClient(messages=[ann(NOON - 60)])
-    tr = make_tracker(client, [NOON])
-    assert len(tr.run_cycle(force=True)) == 1
-    assert len(client.posted) == 1
-
-
-def test_completion_announced_once_then_stops_checking():
-    posted_at = NOON - 13 * HOUR
-    ts = f"{posted_at:.6f}"
-    client = FakeClient(messages=[ann(posted_at)], reactions={ts: []})
+def test_force_posts_now_without_touching_schedule():
+    client = FakeClient(messages=[ann(NOON)])
     now = [NOON]
     tr = make_tracker(client, now)
-    tr.run_cycle()  # reminder
+    now[0] = NOON + 60
+    assert len(tr.run_cycle(force=True)) == 1
+    assert ":mega: *Reminder:*" in client.posted[0][1]
+    run_at(tr, now, NOON + 12 * HOUR)
+    assert "Halfway" in client.posted[-1][1]
+
+
+def test_completion_celebrated_once_then_stops():
+    ts = f"{NOON:.6f}"
+    client = FakeClient(messages=[ann(NOON)], reactions={ts: []})
+    now = [NOON]
+    tr = make_tracker(client, now)
+    run_at(tr, now, NOON + 12 * HOUR)  # halfway
     client.reactions[ts] = [{"name": "scream", "users": ["U1", "U2", "U3"]}]
-    now[0] += 25 * HOUR
-    tr.run_cycle()
+    run_at(tr, now, NOON + 13 * HOUR)
     assert ":tada:" in client.posted[-1][1]
-    now[0] += 25 * HOUR
-    tr.run_cycle()
+    run_at(tr, now, NOON + 23 * HOUR)
     assert len(client.posted) == 2
+
+
+def test_no_celebration_if_nobody_was_reminded():
+    ts = f"{NOON:.6f}"
+    client = FakeClient(messages=[ann(NOON)], reactions={ts: [{"name": "scream", "users": ["U1", "U2", "U3"]}]})
+    tr = make_tracker(client, [NOON + HOUR])
+    tr.run_cycle()
+    assert client.posted == []
 
 
 def test_poster_is_not_nagged():
-    posted_at = NOON - 13 * HOUR
-    client = FakeClient(messages=[ann(posted_at, user="U1")])
-    tr = make_tracker(client, [NOON])
+    client = FakeClient(messages=[ann(NOON, user="U1")])
+    tr = make_tracker(client, [NOON + 12 * HOUR])
     tr.run_cycle()
     text = client.posted[0][1]
-    assert "<@U1>" not in text.split("\n\n")[-1]
-    assert "(0/2 done)" in text
-
-
-def test_quiet_hours_delay_reminder():
-    night = datetime(2026, 9, 30, 2, 0, tzinfo=ZoneInfo("America/Detroit")).timestamp()
-    client = FakeClient(messages=[ann(night - 13 * HOUR)])
-    now = [night]
-    tr = make_tracker(client, now, quiet_hours_start=23, quiet_hours_end=9)
-    tr.run_cycle()
-    assert client.posted == []
-    now[0] += 7 * HOUR  # 9am
-    tr.run_cycle()
-    assert len(client.posted) == 1
+    assert "*Still missing (2):* <@U2> <@U3>" in text
+    assert "0/2" in text
 
 
 def test_dry_run_posts_nothing_and_records_nothing():
-    client = FakeClient(messages=[ann(NOON - 13 * HOUR)])
-    tr = make_tracker(client, [NOON], dry_run=True)
+    client = FakeClient(messages=[ann(NOON)])
+    tr = make_tracker(client, [NOON + 12 * HOUR], dry_run=True)
     assert len(tr.run_cycle()) == 1
     assert client.posted == []
-    assert tr.store.get("C_ANN", f"{NOON - 13 * HOUR:.6f}").reminders_sent == 0
+    assert tr.store.get("C_ANN", f"{NOON:.6f}").sent == set()
 
 
 def test_dm_missing():
-    client = FakeClient(messages=[ann(NOON - 13 * HOUR)])
-    tr = make_tracker(client, [NOON], dm_missing=True)
+    client = FakeClient(messages=[ann(NOON)])
+    tr = make_tracker(client, [NOON + 12 * HOUR], dm_missing=True)
     tr.run_cycle()
     assert {c for c, _ in client.posted} == {"C_SLACK", "U1", "U2", "U3"}
+
+
+def test_format_status_lists_missing_names():
+    from bot.main import format_status
+    posted_at = NOON - HOUR
+    client = FakeClient(messages=[ann(posted_at), ann(posted_at + 60, text="<!channel> second")],
+                        reactions={f"{posted_at + 60:.6f}": [{"name": "scream", "users": ["U1", "U2", "U3"]}]})
+    tr = make_tracker(client, [NOON])
+    out = format_status(tr, tr.statuses())
+    assert "0/3 reacted, 23 hours left\n    Missing: u1, u2, u3" in out
+    assert "3/3 reacted, 23 hours 1 min left :white_check_mark:" in out
+    assert client.posted == []
 
 
 # ---- resolving names ----
@@ -233,14 +261,3 @@ def test_resolve_channel():
     with pytest.raises(ValueError):
         resolve_channel(client, "nope")
 
-
-def test_format_status_lists_missing_names():
-    from bot.main import format_status
-    posted_at = NOON - HOUR
-    client = FakeClient(messages=[ann(posted_at), ann(posted_at + 60, text="<!channel> second")],
-                        reactions={f"{posted_at + 60:.6f}": [{"name": "scream", "users": ["U1", "U2", "U3"]}]})
-    tr = make_tracker(client, [NOON])
-    out = format_status(tr, tr.statuses())
-    assert "0/3 reacted\n    Missing: u1, u2, u3" in out
-    assert "3/3 reacted :white_check_mark:" in out
-    assert client.posted == []

@@ -21,7 +21,7 @@ from slack_sdk.errors import SlackApiError
 from .config import Config, load_config
 from .resolve import resolve_channel, resolve_members
 from .store import Store
-from .tracker import Status, Tracker, snippet
+from .tracker import Status, Tracker, fmt_duration, snippet
 
 log = logging.getLogger("reacttracker")
 
@@ -38,11 +38,15 @@ def build_tracker(cfg: Config, client: WebClient) -> Tracker:
 
 def format_status(tracker: Tracker, statuses: list[Status]) -> str:
     if not statuses:
-        return f"No @channel announcements in the last {tracker.cfg.stop_after_hours:g}h."
+        return f"No @channel announcements in the last {tracker.cfg.deadline_hours:g}h."
+    now = tracker.clock()
     lines = []
     for st in statuses:
         total = tracker.expected_count(st)
-        head = f"*<{st.permalink}|{snippet(st.text, 60) or 'announcement'}>* — {total - len(st.missing)}/{total} reacted"
+        left = tracker.deadline_of(st) - now
+        when = f"{fmt_duration(left / 3600)} left" if left > 0 else "deadline passed"
+        head = (f"*<{st.permalink}|{snippet(st.text, 60) or 'announcement'}>* — "
+                f"{total - len(st.missing)}/{total} reacted, {when}")
         if st.missing:
             names = ", ".join(tracker.roster[u] for u in st.missing)
             lines.append(f"{head}\n    Missing: {names}")

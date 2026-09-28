@@ -1,19 +1,25 @@
 # ReactTracker
 
-A Slack bot for the club. It watches an announcements channel for `@channel` posts, checks which people on your roster reacted with 😱 (`:scream:`), and pings the ones who didn't in `#slackers`.
+A Slack bot for the club. It watches an announcements channel for `@channel` posts, checks which people on your roster have reacted with 😱 (`:scream:`), and calls out the people who haven't in `#eta-slacker-alert`.
 
-```
-🚨 3 people still haven't reacted with :scream: to this announcement from @Adi (21/24 done)
-> GBM moved to 8pm tonight, Room 1311 EECS
+Everyone has 24 hours from the post to react. During that time, the bot posts these to `#eta-slacker-alert`, each one tagging only the people who still haven't reacted:
 
-@alex @jordan @sam
-```
+| When | Message |
+|---|---|
+| Halfway (12h) | 📊 *Halfway check:* 18/24 have reacted to this announcement. 12 hours left. *Still missing (6):* @alex @sam … |
+| 4 hours left | ⚠️ *4 hours left* to react (21/24 done). *Still missing (3):* … |
+| 1 hour left | 🚨 *1 hour left* to react (23/24 done). *Still missing (1):* … |
+| Deadline | ⏰ *Time's up!* 1 person never reacted (23/24 did). *Didn't react:* @sam |
 
-- The first reminder goes out 12h after the post, then another every 24h, and it stops after 72h. Nothing is sent overnight (11pm–9am). You can change all of these in `config.yaml`.
-- Each reminder only pings the people who still haven't reacted. Whoever posted the announcement isn't nagged.
-- Once everyone has reacted, the bot posts a 🎉 and stops checking that announcement.
-- `/reactcheck` shows you who's missing without pinging anyone, and `/reactcheck remind` pings them right away.
-- The bot runs in Socket Mode, so you don't need a public URL or web server. Any computer that stays on can run it.
+Other behavior:
+
+- If everyone reacts early, the bot posts a 🎉 and stops. It stays quiet if it hasn't sent a reminder yet.
+- Whoever posted the announcement isn't nagged.
+- `/reactcheck` shows who's missing and how long is left, without pinging anyone.
+- `/reactcheck remind` pings the missing people right away.
+- If the bot was offline and missed some checkpoints, it posts only the most recent one instead of all of them at once.
+- The deadline, the warning times, and the emoji are all set in `config.yaml`.
+- The bot runs in Socket Mode, so there's no web server or public URL. Any computer that stays on can run it.
 
 ## Setup (about 10 minutes)
 
@@ -24,7 +30,7 @@ A Slack bot for the club. It watches an announcements channel for `@channel` pos
 3. Go to **Basic Information → App-Level Tokens → Generate Token**. Add the `connections:write` scope and copy the token (`xapp-…`).
 4. Go to **Install App → Install to Workspace**, then copy the **Bot User OAuth Token** (`xoxb-…`).
    - If your workspace requires admin approval, a club admin has to approve the app first.
-5. In Slack, invite the bot to both channels by running `/invite @ReactTracker` in the announcements channel and in `#slackers`.
+5. In Slack, invite the bot to both channels by running `/invite @ReactTracker` in the announcements channel and in `#eta-slacker-alert`.
 
 ### 2. Configure
 
@@ -53,26 +59,26 @@ If two people have the same name, the bot won't guess which one you meant. Use t
 
 ### 3. Test it
 
-**Option A: see who's missing, sending nothing.** This needs at least one `@channel` post in the channel from the last 72h:
+**Option A: see who's missing, sending nothing.** This needs at least one `@channel` post in the channel from the last 24h:
 
 ```bash
 python -m bot.main --status
 ```
 
-**Option B: dry run.** This prints the reminder the bot would send, without posting it:
+**Option B: dry run.** This prints a reminder the bot would send, without posting it:
 
 ```bash
 DRY_RUN=1 python -m bot.main --once --force
 ```
 
-**Option C: live test with fast timing.** Make a `#bot-test` channel, invite the bot, and then:
+**Option C: live test of the whole schedule, squeezed into 15 minutes.** Make a `#bot-test` channel, invite the bot, and then:
 
 ```bash
-cp config.test.example.yaml config.test.yaml   # put your own name in members
+cp config.test.example.yaml config.test.yaml   # put your own email in members
 python -m bot.main --config config.test.yaml
 ```
 
-Post `@channel test` in `#bot-test`. Within about a minute the bot pings you, and it pings you again every 3 minutes. React with 😱, and within 3 minutes you get the 🎉 instead. You can also run `/reactcheck` in Slack.
+Post `@channel test` in `#bot-test` and don't react to it. After about 7.5 minutes you get the halfway report, then warnings at 5 minutes and 2 minutes left, then the "Time's up" at 15 minutes. Do it again and react with 😱 partway through to see the 🎉.
 
 ### 4. Run it for real
 
@@ -104,8 +110,9 @@ Reminder history is stored in `tracker.db` (SQLite). Hosts often wipe local file
 
 See [`config.example.yaml`](config.example.yaml); every option is commented. The ones you'll most likely change:
 
-- `emojis`: which reactions count. Use `[scream, astonished, open_mouth]` to accept any "shocked" face.
-- `first_reminder_after_hours`, `reminder_interval_hours`, `stop_after_hours`: the reminder schedule.
+- `deadline_hours`: how long people have to react (default 24).
+- `warn_hours_before`: when to send the countdown warnings (default `[4, 1]`).
+- `halfway_report`, `final_report`: turn those posts on or off.
 - `dm_missing: true`: also DM each person who hasn't reacted.
 - `mentions: [channel, here]`: also track `@here` posts.
 

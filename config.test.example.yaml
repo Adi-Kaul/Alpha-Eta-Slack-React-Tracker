@@ -1,15 +1,14 @@
-# Fast settings for trying the bot out: reminders start right away and repeat every 3 minutes.
-# cp config.test.example.yaml config.test.yaml, edit, then run:  python -m bot.main --config config.test.yaml
-# Fill in the same channels/members as config.yaml (or point at a test channel).
+# A 15-minute version of the whole schedule, for trying the bot out:
+#   halfway report at 7.5 min, warnings at 5 min and 2 min left, final report at 15 min.
+# cp config.test.example.yaml config.test.yaml, put your own email/name in members, then run:
+#   python -m bot.main --config config.test.yaml
 watch_channel: bot-test
 reminder_channel: bot-test
 emojis: [scream]
 members:
-  - YOUR NAME HERE
-first_reminder_after_hours: 0
-reminder_interval_hours: 0.05
-stop_after_hours: 24
-quiet_hours_start: null
-quiet_hours_end: null
-check_interval_minutes: 1
+  - YOUR EMAIL HERE
+deadline_hours: 0.25
+warn_hours_before: [0.0833, 0.0333]
+check_interval_minutes: 0.5
+exclude_poster: false   # so you get pinged about your own test post
 db_path: test.db

@@ -1,37 +1,34 @@
 # Copy to config.yaml and fill in. Channels can be names ("announcements") or IDs ("C0123ABCD").
 watch_channel: announcements
-reminder_channel: slackers
+reminder_channel: eta-slacker-alert
 
-# Emoji names without colons. Reacting with ANY of these counts.
-#   scream = 😱   astonished = 😲   open_mouth = 😮   exploding_head = 🤯
+# Emoji names without colons. Reacting with ANY of these counts. scream = 😱
 emojis:
   - scream
 
-# The people who must react. Each line can be a Slack ID, an email, or their name as it shows in Slack.
+# The people who must react. Each line can be an email (best), a Slack ID, or their name as shown in Slack.
 # Run `python -m bot.members` to print everyone, then `python -m bot.members --check` to verify this list.
 members:
-  - Jane Doe
   - jdoe@umich.edu
+  - Jane Doe
   - U0123456789
 
 # Which broadcasts count as announcements: channel (@channel), here (@here), everyone (@everyone)
 mentions:
   - channel
 
-# Reminder schedule (hours after the announcement is posted)
-first_reminder_after_hours: 12
-reminder_interval_hours: 24
-stop_after_hours: 72
+# Everyone has this many hours after an announcement is posted to react.
+deadline_hours: 24
 
-# No automatic reminders during these hours; they're held until quiet hours end. Set both to null to disable.
-timezone: America/Detroit
-quiet_hours_start: 23
-quiet_hours_end: 9
+# Posts to the reminder channel, each tagging whoever still hasn't reacted:
+halfway_report: true        # at the halfway point
+warn_hours_before: [4, 1]   # this many hours before the deadline
+final_report: true          # at the deadline: everyone who never reacted
 
-check_interval_minutes: 15
+check_interval_minutes: 5
 exclude_poster: true        # don't nag whoever posted the announcement
-dm_missing: false           # also DM each person who hasn't reacted
-announce_completion: true   # post a 🎉 in the reminder channel once everyone's reacted (only if a reminder went out)
-dry_run: false              # log reminders instead of posting them
+dm_missing: false           # also DM each person who hasn't reacted (except at the deadline)
+announce_completion: true   # post a 🎉 once everyone's reacted (only if a reminder already went out)
+dry_run: false              # log messages instead of posting them
 
 db_path: tracker.db

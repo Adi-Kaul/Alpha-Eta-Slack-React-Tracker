@@ -6,9 +6,6 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
 from .config import Config
 from .store import Store
 
@@ -50,21 +47,30 @@ def snippet(text: str, limit: int = 90) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
-def in_quiet_hours(cfg: Config, now: float) -> bool:
-    start, end = cfg.quiet_hours_start, cfg.quiet_hours_end
-    if start is None or end is None or start == end:
-        return False
-    hour = datetime.fromtimestamp(now, ZoneInfo(cfg.timezone)).hour
-    return start <= hour < end if start < end else hour >= start or hour < end
+def fmt_duration(hours: float) -> str:
+    mins = round(hours * 60)
+    if mins < 60:
+        return f"{mins} min"
+    h, m = divmod(mins, 60)
+    return f"{h} hour{'s' if h != 1 else ''}" + (f" {m} min" if m else "")
 
 
-def reminder_due(cfg: Config, posted_at: float, last_reminded_at: float | None, now: float) -> bool:
-    age_h = (now - posted_at) / 3600
-    if age_h < cfg.first_reminder_after_hours or age_h > cfg.stop_after_hours:
-        return False
-    if last_reminded_at is None:
-        return True
-    return (now - last_reminded_at) / 3600 >= cfg.reminder_interval_hours
+def checkpoints(cfg: Config, posted_at: float) -> list[tuple[str, float]]:
+    """(key, unix time) for every scheduled post about an announcement, in time order.
+
+    Keys: "halfway", "warn:<hours>", "deadline". Warnings that would land before the
+    announcement was even posted (e.g. a 4h warning on a 3h deadline) are dropped.
+    """
+    deadline = posted_at + cfg.deadline_hours * 3600
+    points = []
+    if cfg.halfway_report:
+        points.append(("halfway", posted_at + cfg.deadline_hours * 1800))
+    for h in cfg.warn_hours_before:
+        if deadline - h * 3600 > posted_at:
+            points.append((f"warn:{h:g}", deadline - h * 3600))
+    if cfg.final_report:
+        points.append(("deadline", deadline))
+    return sorted(points, key=lambda p: p[1])
 
 
 class Tracker:
@@ -81,7 +87,8 @@ class Tracker:
     # ---- reading ----
 
     def announcements(self) -> list[dict]:
-        oldest = self.clock() - self.cfg.stop_after_hours * 3600
+        # Look back a little past the deadline so a final report isn't lost if the bot was briefly down.
+        oldest = self.clock() - (self.cfg.deadline_hours + 2) * 3600
         found, cursor = [], None
         while True:
             resp = self.client.conversations_history(
@@ -109,6 +116,9 @@ class Tracker:
     def statuses(self) -> list[Status]:
         return [self.status_of(m) for m in self.announcements()]
 
+    def deadline_of(self, st: Status) -> float:
+        return float(st.ts) + self.cfg.deadline_hours * 3600
+
     # ---- writing ----
 
     def _post(self, channel: str, text: str) -> None:
@@ -123,48 +133,71 @@ class Tracker:
     def expected_count(self, st: Status) -> int:
         return len(self.roster) - (1 if self.cfg.exclude_poster and st.poster in self.roster else 0)
 
-    def reminder_text(self, st: Status) -> str:
+    def message_for(self, st: Status, key: str) -> str:
         total = self.expected_count(st)
         done = total - len(st.missing)
-        who = f" from <@{st.poster}>" if st.poster else ""
+        link = f"<{st.permalink}|this announcement>" + (f" from <@{st.poster}>" if st.poster else "")
         quote = f"\n> {snippet(st.text)}" if snippet(st.text) else ""
         pings = " ".join(f"<@{uid}>" for uid in st.missing)
-        return (
-            f":rotating_light: *{len(st.missing)} people still haven't reacted* with {self.emoji_str()} "
-            f"to <{st.permalink}|this announcement>{who} ({done}/{total} done){quote}\n\n{pings}"
-        )
+        left = fmt_duration(max(0.0, (self.deadline_of(st) - self.clock()) / 3600))
+        n = len(st.missing)
 
-    def send_reminder(self, st: Status) -> None:
-        self._post(self.reminder_channel, self.reminder_text(st))
-        if self.cfg.dm_missing:
+        if key == "deadline":
+            return (f":alarm_clock: *Time's up!* {n} {'person' if n == 1 else 'people'} never reacted "
+                    f"with {self.emoji_str()} to {link} ({done}/{total} did).{quote}\n\n*Didn't react:* {pings}")
+        if key == "halfway":
+            head = f":bar_chart: *Halfway check:* {done}/{total} have reacted with {self.emoji_str()} to {link}. {left} left."
+        elif key.startswith("warn:"):
+            icon = ":rotating_light:" if float(key[5:]) <= 1 else ":warning:"
+            head = f"{icon} *{left} left* to react with {self.emoji_str()} to {link} ({done}/{total} done)."
+        else:  # manual /reactcheck remind
+            head = f":mega: *Reminder:* react with {self.emoji_str()} to {link} ({done}/{total} done, {left} left)."
+        return f"{head}{quote}\n\n*Still missing ({n}):* {pings}"
+
+    def send(self, st: Status, key: str) -> None:
+        self._post(self.reminder_channel, self.message_for(st, key))
+        if self.cfg.dm_missing and key != "deadline":
             for uid in st.missing:
-                self._post(uid, f"Hey! Please react with {self.emoji_str()} to <{st.permalink}|this announcement> so we know you saw it.")
-        if not self.cfg.dry_run:
-            self.store.mark_reminded(self.watch_channel, st.ts, self.clock())
+                self._post(uid, f"Hey! Please react with {self.emoji_str()} to <{st.permalink}|this announcement> "
+                                f"so we know you saw it.")
 
     def run_cycle(self, force: bool = False) -> list[Status]:
-        """Checks every recent announcement and sends whatever reminders are due.
+        """Checks every open announcement and posts whatever is due. Returns the ones it posted about.
 
-        force=True sends a reminder for every incomplete announcement right now,
-        ignoring the schedule and quiet hours (used by `/reactcheck remind`).
+        If the bot was down and several checkpoints were missed, only the most recent one is posted.
+        force=True posts a reminder for every open announcement right now (`/reactcheck remind`),
+        without affecting the schedule.
         """
         now = self.clock()
-        quiet = in_quiet_hours(self.cfg, now)
-        reminded = []
+        posted = []
         for msg in self.announcements():
             rec = self.store.get(self.watch_channel, msg["ts"])
             if rec.completed:
                 continue
-            due = reminder_due(self.cfg, float(msg["ts"]), rec.last_reminded_at, now)
-            if not (force or (due and not quiet)):
-                continue
+            posted_at = float(msg["ts"])
+            due = [k for k, t in checkpoints(self.cfg, posted_at) if t <= now and k not in rec.sent]
+            past_deadline = now >= posted_at + self.cfg.deadline_hours * 3600
+
             st = self.status_of(msg)
             if not st.missing:
-                self.store.mark_completed(self.watch_channel, msg["ts"])
-                if self.cfg.announce_completion and rec.reminders_sent > 0:
+                if self.cfg.announce_completion and rec.sent and not self.cfg.dry_run:
                     self._post(self.reminder_channel,
                                f":tada: Everyone reacted to <{st.permalink}|this announcement>. Thanks all!")
+                if not self.cfg.dry_run:
+                    self.store.mark_completed(self.watch_channel, msg["ts"])
                 continue
-            self.send_reminder(st)
-            reminded.append(st)
-        return reminded
+
+            if force and not past_deadline:
+                self.send(st, "manual")
+                posted.append(st)
+                if not self.cfg.dry_run:
+                    self.store.mark_sent(self.watch_channel, msg["ts"], ["manual"])
+            elif due:
+                self.send(st, due[-1])
+                posted.append(st)
+                if not self.cfg.dry_run:
+                    self.store.mark_sent(self.watch_channel, msg["ts"], due)
+
+            if past_deadline and not self.cfg.dry_run:
+                self.store.mark_completed(self.watch_channel, msg["ts"])
+        return posted
