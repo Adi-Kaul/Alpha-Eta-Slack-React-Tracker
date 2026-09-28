@@ -47,9 +47,13 @@ class Config:
 
 
 def load_config(path: str | os.PathLike | None = None) -> Config:
-    path = Path(path or os.environ.get("CONFIG_PATH", "config.yaml"))
-    with open(path) as f:
-        raw = yaml.safe_load(f) or {}
+    # On hosts like Railway/Render it's easier to paste the whole YAML into a CONFIG_YAML env var.
+    if path is None and os.environ.get("CONFIG_YAML"):
+        path, raw = "CONFIG_YAML", yaml.safe_load(os.environ["CONFIG_YAML"]) or {}
+    else:
+        path = Path(path or os.environ.get("CONFIG_PATH", "config.yaml"))
+        with open(path) as f:
+            raw = yaml.safe_load(f) or {}
 
     known = {k for k in Config.__dataclass_fields__}
     unknown = set(raw) - known

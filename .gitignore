@@ -6,3 +6,4 @@ __pycache__/
 config.yaml
 *.db
 .DS_Store
+config.test.yaml

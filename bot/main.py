@@ -101,7 +101,13 @@ def main(argv: list[str] | None = None) -> int:
         sys.exit("SLACK_BOT_TOKEN is not set (put it in .env)")
 
     client = WebClient(token=cfg.bot_token)
-    tracker = build_tracker(cfg, client)
+    try:
+        tracker = build_tracker(cfg, client)
+    except SlackApiError as e:
+        sys.exit(f"Slack rejected the startup checks: {e.response.get('error')} "
+                 "(check SLACK_BOT_TOKEN and that the app is installed with the manifest's scopes)")
+    except ValueError as e:
+        sys.exit(str(e))
 
     if args.status:
         print(format_status(tracker, tracker.statuses()))

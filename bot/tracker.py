@@ -139,7 +139,8 @@ class Tracker:
         if self.cfg.dm_missing:
             for uid in st.missing:
                 self._post(uid, f"Hey! Please react with {self.emoji_str()} to <{st.permalink}|this announcement> so we know you saw it.")
-        self.store.mark_reminded(self.watch_channel, st.ts, self.clock())
+        if not self.cfg.dry_run:
+            self.store.mark_reminded(self.watch_channel, st.ts, self.clock())
 
     def run_cycle(self, force: bool = False) -> list[Status]:
         """Checks every recent announcement and sends whatever reminders are due.

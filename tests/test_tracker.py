@@ -193,11 +193,12 @@ def test_quiet_hours_delay_reminder():
     assert len(client.posted) == 1
 
 
-def test_dry_run_posts_nothing():
+def test_dry_run_posts_nothing_and_records_nothing():
     client = FakeClient(messages=[ann(NOON - 13 * HOUR)])
     tr = make_tracker(client, [NOON], dry_run=True)
     assert len(tr.run_cycle()) == 1
     assert client.posted == []
+    assert tr.store.get("C_ANN", f"{NOON - 13 * HOUR:.6f}").reminders_sent == 0
 
 
 def test_dm_missing():

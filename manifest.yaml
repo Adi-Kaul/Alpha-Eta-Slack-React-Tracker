@@ -1,0 +1,33 @@
+# Paste this at https://api.slack.com/apps -> Create New App -> From a manifest
+display_information:
+  name: ReactTracker
+  description: Nags people who haven't reacted to @channel announcements.
+  background_color: "#4a154b"
+features:
+  bot_user:
+    display_name: ReactTracker
+    always_online: true
+  slash_commands:
+    - command: /reactcheck
+      description: See who hasn't reacted to recent @channel posts (or "remind" to ping them now)
+      usage_hint: "[remind]"
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - channels:history   # read announcements in public channels
+      - groups:history     # ...and private channels
+      - channels:read      # look up channels by name
+      - groups:read
+      - reactions:read     # see who reacted
+      - chat:write         # post reminders
+      - users:read         # map names to people
+      - users:read.email   # ...and emails
+      - im:write           # optional DMs to people who haven't reacted
+      - commands           # /reactcheck
+settings:
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false
