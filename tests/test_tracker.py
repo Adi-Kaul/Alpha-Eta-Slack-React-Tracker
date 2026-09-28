@@ -231,3 +231,15 @@ def test_resolve_channel():
     assert resolve_channel(client, "C0ABCDEFG") == "C0ABCDEFG"
     with pytest.raises(ValueError):
         resolve_channel(client, "nope")
+
+
+def test_format_status_lists_missing_names():
+    from bot.main import format_status
+    posted_at = NOON - HOUR
+    client = FakeClient(messages=[ann(posted_at), ann(posted_at + 60, text="<!channel> second")],
+                        reactions={f"{posted_at + 60:.6f}": [{"name": "scream", "users": ["U1", "U2", "U3"]}]})
+    tr = make_tracker(client, [NOON])
+    out = format_status(tr, tr.statuses())
+    assert "0/3 reacted\n    Missing: u1, u2, u3" in out
+    assert "3/3 reacted :white_check_mark:" in out
+    assert client.posted == []

@@ -120,8 +120,11 @@ class Tracker:
     def emoji_str(self) -> str:
         return " or ".join(f":{e}:" for e in self.cfg.emojis)
 
+    def expected_count(self, st: Status) -> int:
+        return len(self.roster) - (1 if self.cfg.exclude_poster and st.poster in self.roster else 0)
+
     def reminder_text(self, st: Status) -> str:
-        total = len(self.roster) - (1 if self.cfg.exclude_poster and st.poster in self.roster else 0)
+        total = self.expected_count(st)
         done = total - len(st.missing)
         who = f" from <@{st.poster}>" if st.poster else ""
         quote = f"\n> {snippet(st.text)}" if snippet(st.text) else ""
