@@ -231,9 +231,9 @@ def test_format_status_lists_missing_names():
                         reactions={f"{posted_at + 60:.6f}": [{"name": "scream", "users": ["U1", "U2", "U3"]}]})
     tr = make_tracker(client, [NOON])
     out = format_status(tr, tr.statuses())
-    assert "0/3 reacted, 23 hours left\n:x: *Not yet (3):* u1, u2, u3" in out
-    assert ("3/3 reacted, 23 hours 1 min left\n:white_check_mark: *Reacted (3):*\n"
-            "      • u1 — before the bot was watching\n      • u2") in out
+    assert "0/3 reacted, 23 hours left\n    Missing: u1, u2, u3" in out
+    assert "3/3 reacted, 23 hours 1 min left :white_check_mark:" in out
+    assert "Reacted (" not in out  # the simple view doesn't list who reacted
     assert client.posted == []
 
 
@@ -334,7 +334,7 @@ def test_status_lists_who_reacted_with_times_and_who_is_missing():
     tr.statuses()
     tr.on_reaction_added(react_event("U2", NOON, NOON + 1.5 * HOUR))
     client.reactions[f"{NOON:.6f}"][0]["users"].append("U2")
-    out = format_status(tr, tr.statuses())
+    out = format_status(tr, tr.statuses(), full=True)
     assert "2/3 reacted" in out
     assert "u1 — before the bot was watching" in out
     assert f"u2 — <!date^{int(NOON + 1.5 * HOUR)}^" in out

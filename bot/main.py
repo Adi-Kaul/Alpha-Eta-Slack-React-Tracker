@@ -3,6 +3,7 @@
     python -m bot.main            # run forever (Socket Mode)
     python -m bot.main --once     # run one check cycle and exit (good for testing)
     python -m bot.main --status   # print who's missing for recent announcements and exit
+    python -m bot.main --status --full   # ...plus everyone who reacted, with times
 """
 
 from __future__ import annotations
@@ -45,7 +46,8 @@ def fmt_time(t: float, slack: bool) -> str:
     return f"<!date^{int(t)}^{{date_short_pretty}} {{time}}|{fallback}>" if slack else fallback
 
 
-def format_status(tracker: Tracker, statuses: list[Status], slack: bool = True) -> str:
+def format_status(tracker: Tracker, statuses: list[Status], slack: bool = True, full: bool = False) -> str:
+    """Simple: counts + who's missing. full=True: also everyone who reacted, with times."""
     if not statuses:
         return f"No @channel announcements in the last {tracker.cfg.deadline_hours:g}h."
     now = tracker.clock()
@@ -54,8 +56,13 @@ def format_status(tracker: Tracker, statuses: list[Status], slack: bool = True) 
         total = tracker.expected_count(st)
         left = tracker.deadline_of(st) - now
         when = f"{fmt_duration(left / 3600)} left" if left > 0 else "deadline passed"
-        lines = [f"*<{st.permalink}|{snippet(st.text, 60) or 'announcement'}>* — "
-                 f"{total - len(st.missing)}/{total} reacted, {when}"]
+        head = (f"*<{st.permalink}|{snippet(st.text, 60) or 'announcement'}>* — "
+                f"{total - len(st.missing)}/{total} reacted, {when}")
+        if not full:
+            names = ", ".join(tracker.roster[u] for u in st.missing)
+            blocks.append(f"{head}\n    Missing: {names}" if st.missing else f"{head} :white_check_mark:")
+            continue
+        lines = [head]
 
         # Earliest first; unknown times (reacted before the bot was watching) lead, in roster order.
         reacted = sorted((u for u in tracker.roster if u in st.reacted),
@@ -70,7 +77,7 @@ def format_status(tracker: Tracker, statuses: list[Status], slack: bool = True) 
             lines.append(f":x: *Not yet ({len(st.missing)}):* " + ", ".join(tracker.roster[u] for u in st.missing))
         blocks.append("\n".join(lines))
     footer = "\n\n_\"by\" = time the bot first noticed the reaction; the exact time wasn't captured._"
-    text = "\n\n".join(blocks)
+    text = "\n\n".join(blocks) if full else "\n".join(blocks)
     return text + footer if " — by " in text else text
 
 
@@ -106,8 +113,11 @@ def register_commands(app: App, tracker: Tracker) -> None:
                         else "Nothing to remind — everyone's reacted (or there are no recent announcements).")
             elif arg in ("", "status"):
                 respond(format_status(tracker, tracker.statuses()))
+            elif arg in ("full", "expanded", "all", "details"):
+                respond(format_status(tracker, tracker.statuses(), full=True))
             else:
-                respond("Usage: `/reactcheck` (see who's missing) or `/reactcheck remind` (ping them now)")
+                respond("Usage: `/reactcheck` (who's missing), `/reactcheck full` (everyone, with reaction times), "
+                        "or `/reactcheck remind` (ping who's missing now)")
         except Exception as e:
             log.exception("/reactcheck failed")
             respond(f"Something went wrong: {e}")
@@ -119,6 +129,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--once", action="store_true", help="run one check cycle and exit")
     parser.add_argument("--force", action="store_true", help="with --once: remind now, ignoring the schedule")
     parser.add_argument("--status", action="store_true", help="print status and exit")
+    parser.add_argument("--full", action="store_true", help="with --status: also list who reacted, with times")
     args = parser.parse_args(argv)
 
     load_dotenv()
@@ -137,7 +148,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.exit(str(e))
 
     if args.status:
-        print(format_status(tracker, tracker.statuses(), slack=False))
+        print(format_status(tracker, tracker.statuses(), slack=False, full=args.full))
         return 0
     if args.once:
         sent = tracker.run_cycle(force=args.force)
