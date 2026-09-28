@@ -38,7 +38,7 @@ Polling means the bot doesn't need to receive events from Slack. Setup is simple
 | File | What's in it |
 |---|---|
 | [`bot/tracker.py`](../bot/tracker.py) | All the logic: detecting announcements, matching reactions, the checkpoint schedule, message text |
-| [`bot/main.py`](../bot/main.py) | Command-line entry point, the background check loop, and the `/reactcheck` handler |
+| [`bot/main.py`](../bot/main.py) | Command-line entry point, the background check loop, and the `/reactcheck` command handlers |
 | [`bot/resolve.py`](../bot/resolve.py) | Turns channel names and roster entries (emails and names) into Slack IDs |
 | [`bot/store.py`](../bot/store.py) | SQLite storage: which checkpoints were sent and which announcements are finished |
 | [`bot/config.py`](../bot/config.py) | Loads settings from `config.yaml`/`CONFIG_YAML` and environment variables |
@@ -70,4 +70,4 @@ python -m bot.members [--check]
 
 - **Per-announcement deadlines.** Read something like "react by Friday 5pm" from the announcement text and use it instead of `deadline_hours`. The place to change is `checkpoints()` in `tracker.py`.
 - **Weekly leaderboard.** `tracker.db` already tracks announcements. Add a table that records who was missing at each deadline, and post a weekly summary.
-- **Restrict `/reactcheck remind` to officers.** Check `command["user_id"]` against a list in the config.
+- **Restrict `/reactcheck-remind` to officers.** Check `command["user_id"]` against a list in the config.

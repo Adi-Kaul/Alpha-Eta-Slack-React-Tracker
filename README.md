@@ -12,10 +12,10 @@ When someone posts an `@channel` announcement, everyone on the roster has **24 h
 | Deadline | ⏰ **Time's up!** 1 person never reacted (23/24 did). **Didn't react:** @sam |
 | Everyone reacted early | 🎉 Everyone reacted. Thanks all! |
 
-It also adds a `/reactcheck` slash command:
+It also adds three slash commands:
 - `/reactcheck` shows who's missing and how much time is left. Only you can see the reply.
-- `/reactcheck full` also lists everyone who has reacted, and when. Only you can see the reply.
-- `/reactcheck remind` tags everyone who's missing right away.
+- `/reactcheck-full` also lists everyone who has reacted, and when. Only you can see the reply.
+- `/reactcheck-remind` tags everyone who's missing right away.
 
 ## Quick start
 

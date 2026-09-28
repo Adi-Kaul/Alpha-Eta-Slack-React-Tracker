@@ -17,7 +17,7 @@ This guide takes you from nothing to a working bot in your Slack. It takes about
 4. Click **Next**, then **Create**.
    - Slack may warn that *"Socket Mode … requires additional setup in App Settings."* That's expected; click **Create** anyway. The extra setup is the app-level token you'll make in the next step.
 
-The manifest sets up everything the bot needs: its name, the `/reactcheck` command, Socket Mode, and these permissions:
+The manifest sets up everything the bot needs: its name, the `/reactcheck`, `/reactcheck-full` and `/reactcheck-remind` commands, Socket Mode, and these permissions:
 
 | Permission | Why the bot needs it |
 |---|---|
@@ -27,7 +27,7 @@ The manifest sets up everything the bot needs: its name, the `/reactcheck` comma
 | `chat:write` | To post reminders |
 | `users:read`, `users:read.email` | To match the emails in your roster to Slack accounts |
 | `im:write` | To send DMs, which are optional and off by default |
-| `commands` | For `/reactcheck` |
+| `commands` | For the `/reactcheck` commands |
 
 ## 2. Get the two tokens
 

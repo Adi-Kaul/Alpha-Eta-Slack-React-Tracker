@@ -102,10 +102,7 @@ def register_commands(app: App, tracker: Tracker) -> None:
     def reaction_added(event):
         tracker.on_reaction_added(event)
 
-    @app.command("/reactcheck")
-    def reactcheck(ack, command, respond):
-        ack()
-        arg = (command.get("text") or "").strip().lower()
+    def handle(arg: str, respond) -> None:
         try:
             if arg == "remind":
                 sent = tracker.run_cycle(force=True)
@@ -116,11 +113,27 @@ def register_commands(app: App, tracker: Tracker) -> None:
             elif arg in ("full", "expanded", "all", "details"):
                 respond(format_status(tracker, tracker.statuses(), full=True))
             else:
-                respond("Usage: `/reactcheck` (who's missing), `/reactcheck full` (everyone, with reaction times), "
-                        "or `/reactcheck remind` (ping who's missing now)")
+                respond("Usage: `/reactcheck` (who's missing), `/reactcheck-full` (everyone, with reaction times), "
+                        "or `/reactcheck-remind` (ping who's missing now)")
         except Exception as e:
             log.exception("/reactcheck failed")
             respond(f"Something went wrong: {e}")
+
+    @app.command("/reactcheck")
+    def reactcheck(ack, command, respond):
+        ack()
+        handle((command.get("text") or "").strip().lower(), respond)
+
+    # Separate commands so each shows up in Slack's autocomplete.
+    @app.command("/reactcheck-full")
+    def reactcheck_full(ack, respond):
+        ack()
+        handle("full", respond)
+
+    @app.command("/reactcheck-remind")
+    def reactcheck_remind(ack, respond):
+        ack()
+        handle("remind", respond)
 
 
 def main(argv: list[str] | None = None) -> int:

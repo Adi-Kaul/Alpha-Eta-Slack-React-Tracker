@@ -42,7 +42,7 @@ Each message links to the announcement and quotes its first line, so it's clear 
 
 ## Commands
 
-Anyone in the workspace can use these commands in any channel.
+Anyone in the workspace can use these commands in any channel. `/reactcheck full` and `/reactcheck remind` also work.
 
 ### `/reactcheck`
 
@@ -54,7 +54,7 @@ GBM moved to 8pm tonight… — 20/24 reacted, 6 hours left
 Dues are due Friday… — 24/24 reacted, 18 hours left ✅
 ```
 
-### `/reactcheck full`
+### `/reactcheck-full`
 
 The same, plus everyone who *has* reacted and when, earliest first. Also only visible to you.
 
@@ -72,7 +72,7 @@ Times show in your own timezone. How they're recorded:
 - **"by 2:35 PM":** the bot missed the live event and noticed the reaction on its next check, so it happened at or shortly before that time.
 - **"before the bot was watching":** the reaction was already there when the bot started up, for example right after a redeploy, so the time is unknown.
 
-### `/reactcheck remind`
+### `/reactcheck-remind`
 
 Posts a reminder to `#eta-slacker-alert` **right now** for every open announcement, tagging whoever hasn't reacted. Use it when you don't want to wait for the next scheduled post. It doesn't change the regular schedule.
 

@@ -9,8 +9,13 @@ features:
     always_online: true
   slash_commands:
     - command: /reactcheck
-      description: See who hasn't reacted to recent @channel posts ("full" for everyone + times, "remind" to ping them)
-      usage_hint: "[full | remind]"
+      description: See who hasn't reacted to recent @channel posts
+      should_escape: false
+    - command: /reactcheck-full
+      description: See everyone who has and hasn't reacted, with reaction times
+      should_escape: false
+    - command: /reactcheck-remind
+      description: Tag everyone who hasn't reacted yet, right now
       should_escape: false
 oauth_config:
   scopes:

@@ -339,3 +339,30 @@ def test_status_lists_who_reacted_with_times_and_who_is_missing():
     assert "u1 — before the bot was watching" in out
     assert f"u2 — <!date^{int(NOON + 1.5 * HOUR)}^" in out
     assert "*Not yet (1):* u3" in out
+
+
+def test_slash_commands_route_to_the_right_view():
+    from bot.main import register_commands
+    handlers = {}
+
+    class FakeApp:
+        def command(self, name):
+            return lambda f: handlers.setdefault(name, f)
+
+        def event(self, name):
+            return lambda f: handlers.setdefault(name, f)
+
+    posted_at = NOON - HOUR
+    client = FakeClient(messages=[ann(posted_at)], reactions={f"{posted_at:.6f}": [{"name": "scream", "users": ["U1"]}]})
+    register_commands(FakeApp(), make_tracker(client, [NOON]))
+
+    def call(name, text=""):
+        out = []
+        kwargs = dict(ack=lambda: None, respond=out.append)
+        handlers[name](command={"text": text}, **kwargs) if name == "/reactcheck" else handlers[name](**kwargs)
+        return out[0]
+
+    assert "Missing: u2, u3" in call("/reactcheck")
+    assert "*Reacted (1):*" in call("/reactcheck-full") == call("/reactcheck", "full")
+    assert call("/reactcheck-remind").startswith("Sent 1 reminder")
+    assert "Usage:" in call("/reactcheck", "nonsense")
