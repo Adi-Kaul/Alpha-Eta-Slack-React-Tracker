@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 import time
 from dataclasses import dataclass
 from .config import Config
@@ -83,6 +84,8 @@ class Tracker:
         self.reminder_channel = reminder_channel
         self.roster = roster  # {user_id: label}
         self.clock = clock
+        # The background loop and /reactcheck can both call run_cycle; don't let them double-post.
+        self._cycle_lock = threading.Lock()
 
     # ---- reading ----
 
@@ -168,6 +171,10 @@ class Tracker:
         force=True posts a reminder for every open announcement right now (`/reactcheck remind`),
         without affecting the schedule.
         """
+        with self._cycle_lock:
+            return self._run_cycle(force)
+
+    def _run_cycle(self, force: bool) -> list[Status]:
         now = self.clock()
         posted = []
         for msg in self.announcements():
