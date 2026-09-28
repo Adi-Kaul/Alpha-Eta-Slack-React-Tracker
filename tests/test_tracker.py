@@ -240,17 +240,17 @@ def test_format_status_lists_missing_names():
 
 def test_resolve_members_by_name_email_and_id():
     users = [
-        {"id": "UAAAAAAA1", "name": "akaul", "profile": {"email": "adi@umich.edu", "display_name": "Adi", "real_name": "Adi Kaul"}},
-        {"id": "UAAAAAAA2", "name": "bsmith", "profile": {"email": "b@umich.edu", "display_name": "", "real_name": "Ben Smith"}},
+        {"id": "UAAAAAAA1", "name": "jdoe", "profile": {"email": "jane@example.com", "display_name": "Jane", "real_name": "Jane Doe"}},
+        {"id": "UAAAAAAA2", "name": "bsmith", "profile": {"email": "ben@example.com", "display_name": "", "real_name": "Ben Smith"}},
         {"id": "UAAAAAAA3", "name": "alex1", "profile": {"real_name": "Alex"}},
         {"id": "UAAAAAAA4", "name": "alex2", "profile": {"real_name": "Alex"}},
         {"id": "UBOT00001", "name": "bot", "is_bot": True, "profile": {"real_name": "Bot"}},
     ]
     resolved, unresolved = resolve_members(
         FakeClient(users=users),
-        ["adi kaul", "B@UMICH.EDU", "@bsmith", "UAAAAAAA3", "Alex", "Nobody", "Bot"],
+        ["jane doe", "BEN@EXAMPLE.COM", "@bsmith", "UAAAAAAA3", "Alex", "Nobody", "Bot"],
     )
-    assert resolved == {"UAAAAAAA1": "Adi", "UAAAAAAA2": "Ben Smith", "UAAAAAAA3": "Alex"}
+    assert resolved == {"UAAAAAAA1": "Jane", "UAAAAAAA2": "Ben Smith", "UAAAAAAA3": "Alex"}
     assert unresolved == ["Alex", "Nobody", "Bot"]
 
 

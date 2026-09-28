@@ -9,7 +9,7 @@ emojis:
 # The people who must react. Each line can be an email (best), a Slack ID, or their name as shown in Slack.
 # Run `python -m bot.members` to print everyone, then `python -m bot.members --check` to verify this list.
 members:
-  - jdoe@umich.edu
+  - jdoe@example.com
   - Jane Doe
   - U0123456789
 
