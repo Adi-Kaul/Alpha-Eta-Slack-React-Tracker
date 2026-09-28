@@ -15,6 +15,7 @@ This guide takes you from nothing to a working bot in your Slack. It takes about
 2. Pick your club's workspace and click **Next**.
 3. Choose the **YAML** tab. Delete what's there and paste in the entire contents of [`manifest.yaml`](../manifest.yaml).
 4. Click **Next**, then **Create**.
+   - Slack may warn that *"Socket Mode … requires additional setup in App Settings."* That's expected; click **Create** anyway. The extra setup is the app-level token you'll make in the next step.
 
 The manifest sets up everything the bot needs: its name, the `/reactcheck` command, Socket Mode, and these permissions:
 
