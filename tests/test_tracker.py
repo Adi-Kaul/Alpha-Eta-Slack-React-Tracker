@@ -366,3 +366,4 @@ def test_slash_commands_route_to_the_right_view():
     assert "*Reacted (1):*" in call("/reactcheck-full") == call("/reactcheck", "full")
     assert call("/reactcheck-remind").startswith("Sent 1 reminder")
     assert "Usage:" in call("/reactcheck", "nonsense")
+    assert "Usage:" in call("/reactcheck", "remind")  # only /reactcheck-remind pings people

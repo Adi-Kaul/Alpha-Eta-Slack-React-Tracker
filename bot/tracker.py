@@ -175,7 +175,7 @@ class Tracker:
         elif key.startswith("warn:"):
             icon = ":rotating_light:" if float(key[5:]) <= 1 else ":warning:"
             head = f"{icon} *{left} left* to react with {self.emoji_str()} to {link} ({done}/{total} done)."
-        else:  # manual /reactcheck remind
+        else:  # manual /reactcheck-remind
             head = f":mega: *Reminder:* react with {self.emoji_str()} to {link} ({done}/{total} done, {left} left)."
         return f"{head}{quote}\n\n*Still missing ({n}):* {pings}"
 
@@ -190,7 +190,7 @@ class Tracker:
         """Checks every open announcement and posts whatever is due. Returns the ones it posted about.
 
         If the bot was down and several checkpoints were missed, only the most recent one is posted.
-        force=True posts a reminder for every open announcement right now (`/reactcheck remind`),
+        force=True posts a reminder for every open announcement right now (`/reactcheck-remind`),
         without affecting the schedule.
         """
         with self._cycle_lock:

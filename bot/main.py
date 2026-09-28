@@ -122,7 +122,9 @@ def register_commands(app: App, tracker: Tracker) -> None:
     @app.command("/reactcheck")
     def reactcheck(ack, command, respond):
         ack()
-        handle((command.get("text") or "").strip().lower(), respond)
+        arg = (command.get("text") or "").strip().lower()
+        # Pinging people only happens through /reactcheck-remind, never by typing an argument.
+        handle("usage" if arg == "remind" else arg, respond)
 
     # Separate commands so each shows up in Slack's autocomplete.
     @app.command("/reactcheck-full")

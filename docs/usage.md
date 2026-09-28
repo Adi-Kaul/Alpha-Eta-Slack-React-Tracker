@@ -42,7 +42,7 @@ Each message links to the announcement and quotes its first line, so it's clear 
 
 ## Commands
 
-Anyone in the workspace can use these commands in any channel. `/reactcheck full` and `/reactcheck remind` also work.
+Anyone in the workspace can use these commands in any channel. `/reactcheck full` also works.
 
 ### `/reactcheck`
 
