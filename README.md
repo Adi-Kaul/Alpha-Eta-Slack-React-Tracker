@@ -19,7 +19,7 @@ It also adds two slash commands:
 ## Quick start
 
 ```bash
-git clone https://github.com/Adi-Kaul/slack-react-tracker.git && cd slack-react-tracker
+git clone https://github.com/Adi-Kaul/Alpha-Eta-Slack-React-Tracker.git && cd Alpha-Eta-Slack-React-Tracker
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 

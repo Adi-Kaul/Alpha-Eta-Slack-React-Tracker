@@ -46,7 +46,7 @@ db_path: /data/tracker.db
 ## Railway
 
 1. Sign in at <https://railway.com> with GitHub.
-2. Click **New Project** → **Deploy from GitHub repo**, then pick `slack-react-tracker`. Railway finds the `Dockerfile` and builds it.
+2. Click **New Project** → **Deploy from GitHub repo**, then pick `Alpha-Eta-Slack-React-Tracker`. Railway finds the `Dockerfile` and builds it.
 3. Open the service's **Variables** tab and add `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, and `CONFIG_YAML`.
 4. *(Optional)* To keep reminder history, add a **Volume** mounted at `/data`, and add `db_path: /data/tracker.db` to `CONFIG_YAML`.
 5. Railway redeploys. Open **Deployments** → **View logs** and look for:
@@ -95,7 +95,7 @@ Also set `db_path: /data/tracker.db` in your config, then run `fly secrets set C
 
 This runs the bot in the background, starts it when you log in, and restarts it if it crashes. First finish [setup.md](setup.md) so that `python -m bot.main` works in the repo folder.
 
-Create `~/Library/LaunchAgents/com.eta.reacttracker.plist`, replacing `/Users/YOU/slack-react-tracker` with your actual path:
+Create `~/Library/LaunchAgents/com.eta.reacttracker.plist`, replacing `/Users/YOU/Alpha-Eta-Slack-React-Tracker` with your actual path:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -103,24 +103,24 @@ Create `~/Library/LaunchAgents/com.eta.reacttracker.plist`, replacing `/Users/YO
 <plist version="1.0">
 <dict>
   <key>Label</key><string>com.eta.reacttracker</string>
-  <key>WorkingDirectory</key><string>/Users/YOU/slack-react-tracker</string>
+  <key>WorkingDirectory</key><string>/Users/YOU/Alpha-Eta-Slack-React-Tracker</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/YOU/slack-react-tracker/.venv/bin/python</string>
+    <string>/Users/YOU/Alpha-Eta-Slack-React-Tracker/.venv/bin/python</string>
     <string>-m</string>
     <string>bot.main</string>
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
-  <key>StandardOutPath</key><string>/Users/YOU/slack-react-tracker/bot.log</string>
-  <key>StandardErrorPath</key><string>/Users/YOU/slack-react-tracker/bot.log</string>
+  <key>StandardOutPath</key><string>/Users/YOU/Alpha-Eta-Slack-React-Tracker/bot.log</string>
+  <key>StandardErrorPath</key><string>/Users/YOU/Alpha-Eta-Slack-React-Tracker/bot.log</string>
 </dict>
 </plist>
 ```
 
 ```bash
 launchctl load ~/Library/LaunchAgents/com.eta.reacttracker.plist     # start
-tail -f ~/slack-react-tracker/bot.log                                  # watch logs
+tail -f ~/Alpha-Eta-Slack-React-Tracker/bot.log                                  # watch logs
 launchctl unload ~/Library/LaunchAgents/com.eta.reacttracker.plist   # stop
 ```
 
@@ -140,8 +140,8 @@ Wants=network-online.target
 
 [Service]
 User=pi
-WorkingDirectory=/home/pi/slack-react-tracker
-ExecStart=/home/pi/slack-react-tracker/.venv/bin/python -m bot.main
+WorkingDirectory=/home/pi/Alpha-Eta-Slack-React-Tracker
+ExecStart=/home/pi/Alpha-Eta-Slack-React-Tracker/.venv/bin/python -m bot.main
 Restart=always
 RestartSec=10
 

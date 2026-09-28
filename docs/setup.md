@@ -56,8 +56,8 @@ The bot can only read the announcements channel and post in the alert channel if
 ## 4. Install the code
 
 ```bash
-git clone https://github.com/Adi-Kaul/slack-react-tracker.git
-cd slack-react-tracker
+git clone https://github.com/Adi-Kaul/Alpha-Eta-Slack-React-Tracker.git
+cd Alpha-Eta-Slack-React-Tracker
 
 python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
