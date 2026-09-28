@@ -34,6 +34,8 @@ class Config:
     quiet_hours_end: int | None = 9
 
     check_interval_minutes: float = 15
+    # Don't nag whoever posted the announcement.
+    exclude_poster: bool = True
     dm_missing: bool = False
     announce_completion: bool = True
 
