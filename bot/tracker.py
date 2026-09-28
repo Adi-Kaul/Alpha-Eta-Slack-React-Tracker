@@ -6,7 +6,7 @@ import logging
 import re
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from .config import Config
 from .store import Store
 
@@ -25,6 +25,7 @@ class Status:
     permalink: str
     reacted: set[str]
     missing: list[str]  # user IDs, in roster order
+    reacted_at: dict[str, tuple[float | None, bool]] = field(default_factory=dict)  # user -> (unix time, exact?)
 
 
 def is_announcement(msg: dict, mentions: list[str]) -> bool:
@@ -86,6 +87,7 @@ class Tracker:
         self.clock = clock
         # The background loop and /reactcheck can both call run_cycle; don't let them double-post.
         self._cycle_lock = threading.Lock()
+        self._last_checked: dict[str, float] = {}  # announcement ts -> when this process last read its reactions
 
     # ---- reading ----
 
@@ -106,6 +108,13 @@ class Tracker:
         # reactions.get with full=True is the only call guaranteed to return every reacting user.
         resp = self.client.reactions_get(channel=self.watch_channel, timestamp=msg["ts"], full=True)
         reacted = reacted_users(resp["message"].get("reactions"), self.cfg.emojis)
+        # Slack doesn't say when a reaction happened. reaction_added events give exact times;
+        # anything they missed is stamped with the first check that noticed it. On the first check
+        # since startup there's no earlier check to bound it, so the time is unknown.
+        now = self.clock()
+        seen_at = now if msg["ts"] in self._last_checked else None
+        self.store.record_reactions(self.watch_channel, msg["ts"], reacted, seen_at, exact=False)
+        self._last_checked[msg["ts"]] = now
         poster = msg.get("user")
         missing = [
             uid for uid in self.roster
@@ -114,7 +123,16 @@ class Tracker:
         permalink = self.client.chat_getPermalink(
             channel=self.watch_channel, message_ts=msg["ts"]
         )["permalink"]
-        return Status(msg["ts"], poster, msg.get("text", ""), permalink, reacted, missing)
+        times = self.store.reaction_times(self.watch_channel, msg["ts"])
+        return Status(msg["ts"], poster, msg.get("text", ""), permalink, reacted, missing,
+                      {u: times[u] for u in reacted if u in times})
+
+    def on_reaction_added(self, event: dict) -> None:
+        item = event.get("item") or {}
+        if (item.get("type") == "message" and item.get("channel") == self.watch_channel
+                and event.get("reaction", "").split("::")[0] in self.cfg.emojis):
+            self.store.record_reactions(self.watch_channel, item["ts"], [event["user"]],
+                                        float(event["event_ts"]), exact=True)
 
     def statuses(self) -> list[Status]:
         return [self.status_of(m) for m in self.announcements()]

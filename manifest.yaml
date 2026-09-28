@@ -26,6 +26,9 @@ oauth_config:
       - im:write           # optional DMs to people who haven't reacted
       - commands           # /reactcheck
 settings:
+  event_subscriptions:
+    bot_events:
+      - reaction_added   # record exactly when people react
   interactivity:
     is_enabled: true
   org_deploy_enabled: false

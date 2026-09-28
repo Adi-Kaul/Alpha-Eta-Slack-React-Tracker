@@ -231,8 +231,9 @@ def test_format_status_lists_missing_names():
                         reactions={f"{posted_at + 60:.6f}": [{"name": "scream", "users": ["U1", "U2", "U3"]}]})
     tr = make_tracker(client, [NOON])
     out = format_status(tr, tr.statuses())
-    assert "0/3 reacted, 23 hours left\n    Missing: u1, u2, u3" in out
-    assert "3/3 reacted, 23 hours 1 min left :white_check_mark:" in out
+    assert "0/3 reacted, 23 hours left\n:x: *Not yet (3):* u1, u2, u3" in out
+    assert ("3/3 reacted, 23 hours 1 min left\n:white_check_mark: *Reacted (3):*\n"
+            "      • u1 — before the bot was watching\n      • u2") in out
     assert client.posted == []
 
 
@@ -261,3 +262,80 @@ def test_resolve_channel():
     with pytest.raises(ValueError):
         resolve_channel(client, "nope")
 
+
+
+# ---- reaction times ----
+
+def react_event(user, ts, at, reaction="scream", channel="C_ANN"):
+    return {"user": user, "reaction": reaction, "event_ts": f"{at:.6f}",
+            "item": {"type": "message", "channel": channel, "ts": f"{ts:.6f}"}}
+
+
+def test_reaction_times_exact_approximate_and_unknown():
+    now = [NOON + HOUR]
+    client = FakeClient(messages=[ann(NOON)], reactions={f"{NOON:.6f}": [{"name": "scream", "users": ["U1"]}]})
+    tr = make_tracker(client, now)
+
+    # U1 reacted before the bot started, so the first check can't say when.
+    assert tr.statuses()[0].reacted_at == {"U1": (None, False)}
+
+    # U2 reacts while the bot is running but the event is missed: stamped with the next check.
+    client.reactions[f"{NOON:.6f}"][0]["users"].append("U2")
+    now[0] = NOON + 2 * HOUR
+    assert tr.statuses()[0].reacted_at["U2"] == (NOON + 2 * HOUR, False)
+
+    # U3's reaction_added event arrives: exact time, and a later check doesn't overwrite it.
+    tr.on_reaction_added(react_event("U3", NOON, NOON + 2.5 * HOUR))
+    client.reactions[f"{NOON:.6f}"][0]["users"].append("U3")
+    now[0] = NOON + 3 * HOUR
+    assert tr.statuses()[0].reacted_at["U3"] == (NOON + 2.5 * HOUR, True)
+
+
+def test_exact_event_replaces_approximate_time():
+    now = [NOON + HOUR]
+    client = FakeClient(messages=[ann(NOON)])
+    tr = make_tracker(client, now)
+    tr.statuses()
+    client.reactions[f"{NOON:.6f}"] = [{"name": "scream", "users": ["U1"]}]
+    now[0] = NOON + 2 * HOUR
+    tr.statuses()  # check noticed it first
+    tr.on_reaction_added(react_event("U1", NOON, NOON + 1.5 * HOUR))  # late event with the true time
+    assert tr.statuses()[0].reacted_at["U1"] == (NOON + 1.5 * HOUR, True)
+
+
+def test_reaction_events_for_other_emojis_or_channels_are_ignored():
+    now = [NOON + HOUR]
+    client = FakeClient(messages=[ann(NOON)])
+    tr = make_tracker(client, now)
+    tr.on_reaction_added(react_event("U1", NOON, NOON + 60, reaction="thumbsup"))
+    tr.on_reaction_added(react_event("U2", NOON, NOON + 60, channel="C_OTHER"))
+    assert tr.store.reaction_times("C_ANN", f"{NOON:.6f}") == {}
+
+
+def test_two_announcements_get_separate_reports():
+    now = [NOON]
+    first, second = NOON - 12 * HOUR, NOON - 2 * HOUR
+    client = FakeClient(messages=[ann(first, text="<!channel> dues"), ann(second, text="<!channel> retreat")])
+    tr = make_tracker(client, now)
+    posted = tr.run_cycle()
+    assert [p.ts for p in posted] == [f"{first:.6f}"]  # only the first has hit its halfway point
+    now[0] = second + 12 * HOUR
+    posted = tr.run_cycle()
+    assert [p.ts for p in posted] == [f"{first:.6f}", f"{second:.6f}"]  # first: 4h warning, second: halfway
+    assert all(ch == "C_SLACK" for ch, _ in client.posted)
+    assert any("dues" in t for _, t in client.posted) and any("retreat" in t for _, t in client.posted)
+
+
+def test_status_lists_who_reacted_with_times_and_who_is_missing():
+    from bot.main import format_status
+    now = [NOON + HOUR]
+    client = FakeClient(messages=[ann(NOON)], reactions={f"{NOON:.6f}": [{"name": "scream", "users": ["U1"]}]})
+    tr = make_tracker(client, now)
+    tr.statuses()
+    tr.on_reaction_added(react_event("U2", NOON, NOON + 1.5 * HOUR))
+    client.reactions[f"{NOON:.6f}"][0]["users"].append("U2")
+    out = format_status(tr, tr.statuses())
+    assert "2/3 reacted" in out
+    assert "u1 — before the bot was watching" in out
+    assert f"u2 — <!date^{int(NOON + 1.5 * HOUR)}^" in out
+    assert "*Not yet (1):* u3" in out

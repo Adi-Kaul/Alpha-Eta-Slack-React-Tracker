@@ -157,7 +157,7 @@ DRY_RUN=1 python -m bot.main --once --force
 
 This is the best way to see exactly what everyone will get.
 
-1. Create a channel called `#bot-test` and `/invite @ReactTracker` to it.
+1. Create two channels, `#bot-test` and `#bot-test-alerts`, and `/invite @ReactTracker` to both. (The bot never posts in the channel it watches, so it needs a separate one for reminders.)
 2. Make the test config:
    ```bash
    cp config.test.example.yaml config.test.yaml
@@ -169,7 +169,7 @@ This is the best way to see exactly what everyone will get.
    ```
 4. In `#bot-test`, post `@channel test` and **don't react**.
 
-What you'll see in `#bot-test`:
+What you'll see in `#bot-test-alerts`:
 
 | Time after post | Message |
 |---|---|

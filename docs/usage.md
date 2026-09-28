@@ -46,13 +46,25 @@ Anyone in the workspace can use these commands in any channel.
 
 ### `/reactcheck`
 
-Shows the status of every announcement from the last 24 hours. **Only you** can see the reply, and it doesn't ping anyone.
+Shows every announcement from the last 24 hours: who has reacted (and when), and who hasn't. **Only you** can see the reply, and it doesn't ping anyone.
 
 ```
 GBM moved to 8pm tonight… — 20/24 reacted, 6 hours left
-    Missing: Alex Chen, Sam Patel, Jordan Lee, Riley Kim
-Dues are due Friday… — 24/24 reacted, 18 hours left ✅
+✅ Reacted (20):
+      • Sam Patel — Today 2:14 PM
+      • Alex Chen — Today 2:31 PM
+      • …
+❌ Not yet (4): Jordan Lee, Riley Kim, Casey Park, Taylor Wu
+
+Dues are due Friday… — 24/24 reacted, 18 hours left
+✅ Reacted (24):
+      • …
 ```
+
+Times show in your own timezone. How they're recorded:
+- **Exact time:** the bot saw the reaction as it happened.
+- **"by 2:35 PM":** the bot missed the live event and noticed the reaction on its next check, so it happened at or shortly before that time.
+- **"before the bot was watching":** the reaction was already there when the bot started up, for example right after a redeploy, so the time is unknown.
 
 ### `/reactcheck remind`
 

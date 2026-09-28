@@ -3,7 +3,7 @@
 # cp config.test.example.yaml config.test.yaml, put your own email/name in members, then run:
 #   python -m bot.main --config config.test.yaml
 watch_channel: bot-test
-reminder_channel: bot-test
+reminder_channel: bot-test-alerts
 emojis: [scream]
 members:
   - YOUR EMAIL HERE

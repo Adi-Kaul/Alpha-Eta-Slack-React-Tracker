@@ -31,6 +31,14 @@ class Store:
                 ts TEXT NOT NULL,
                 checkpoint TEXT NOT NULL,
                 PRIMARY KEY (channel, ts, checkpoint)
+            );
+            CREATE TABLE IF NOT EXISTS reactions (
+                channel TEXT NOT NULL,
+                ts TEXT NOT NULL,
+                user TEXT NOT NULL,
+                reacted_at REAL,  -- NULL: already reacted before the bot was watching
+                exact INTEGER NOT NULL,  -- 1: from a reaction_added event; 0: first noticed by a check
+                PRIMARY KEY (channel, ts, user)
             );"""
         )
 
@@ -60,3 +68,19 @@ class Store:
                 "UPDATE announcements SET completed = 1 WHERE channel = ? AND ts = ?", (channel, ts)
             )
             self._db.commit()
+
+    def record_reactions(self, channel: str, ts: str, users, at: float | None, exact: bool) -> None:
+        """Remembers when each user first reacted. An exact time replaces an approximate one, never vice versa."""
+        with self._lock:
+            self._db.executemany(
+                """INSERT INTO reactions (channel, ts, user, reacted_at, exact) VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT (channel, ts, user) DO UPDATE SET reacted_at = excluded.reacted_at, exact = 1
+                   WHERE excluded.exact = 1 AND reactions.exact = 0""",
+                [(channel, ts, u, at, int(exact)) for u in users],
+            )
+            self._db.commit()
+
+    def reaction_times(self, channel: str, ts: str) -> dict[str, tuple[float | None, bool]]:
+        with self._lock:
+            return {u: (at, bool(exact)) for u, at, exact in self._db.execute(
+                "SELECT user, reacted_at, exact FROM reactions WHERE channel = ? AND ts = ?", (channel, ts))}

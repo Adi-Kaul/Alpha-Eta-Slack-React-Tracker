@@ -11,6 +11,7 @@ import argparse
 import logging
 import sys
 import threading
+from datetime import datetime
 
 from dotenv import load_dotenv
 from slack_bolt import App
@@ -38,23 +39,39 @@ def build_tracker(cfg: Config, client: WebClient) -> Tracker:
     return Tracker(client, cfg, Store(cfg.db_path), watch, remind, roster)
 
 
-def format_status(tracker: Tracker, statuses: list[Status]) -> str:
+def fmt_time(t: float, slack: bool) -> str:
+    fallback = datetime.fromtimestamp(t).strftime("%a %-I:%M %p")
+    # Slack renders <!date> in each viewer's own timezone.
+    return f"<!date^{int(t)}^{{date_short_pretty}} {{time}}|{fallback}>" if slack else fallback
+
+
+def format_status(tracker: Tracker, statuses: list[Status], slack: bool = True) -> str:
     if not statuses:
         return f"No @channel announcements in the last {tracker.cfg.deadline_hours:g}h."
     now = tracker.clock()
-    lines = []
+    blocks = []
     for st in statuses:
         total = tracker.expected_count(st)
         left = tracker.deadline_of(st) - now
         when = f"{fmt_duration(left / 3600)} left" if left > 0 else "deadline passed"
-        head = (f"*<{st.permalink}|{snippet(st.text, 60) or 'announcement'}>* — "
-                f"{total - len(st.missing)}/{total} reacted, {when}")
+        lines = [f"*<{st.permalink}|{snippet(st.text, 60) or 'announcement'}>* — "
+                 f"{total - len(st.missing)}/{total} reacted, {when}"]
+
+        # Earliest first; unknown times (reacted before the bot was watching) lead, in roster order.
+        reacted = sorted((u for u in tracker.roster if u in st.reacted),
+                         key=lambda u: st.reacted_at.get(u, (None,))[0] or 0)
+        if reacted:
+            lines.append(f":white_check_mark: *Reacted ({len(reacted)}):*")
+            for u in reacted:
+                at, exact = st.reacted_at.get(u, (None, False))
+                stamp = f" — {'' if exact else 'by '}{fmt_time(at, slack)}" if at else " — before the bot was watching"
+                lines.append(f"      • {tracker.roster[u]}{stamp}")
         if st.missing:
-            names = ", ".join(tracker.roster[u] for u in st.missing)
-            lines.append(f"{head}\n    Missing: {names}")
-        else:
-            lines.append(f"{head} :white_check_mark:")
-    return "\n".join(lines)
+            lines.append(f":x: *Not yet ({len(st.missing)}):* " + ", ".join(tracker.roster[u] for u in st.missing))
+        blocks.append("\n".join(lines))
+    footer = "\n\n_\"by\" = time the bot first noticed the reaction; the exact time wasn't captured._"
+    text = "\n\n".join(blocks)
+    return text + footer if " — by " in text else text
 
 
 def check_loop(tracker: Tracker, stop: threading.Event) -> None:
@@ -74,6 +91,10 @@ def check_loop(tracker: Tracker, stop: threading.Event) -> None:
 
 
 def register_commands(app: App, tracker: Tracker) -> None:
+    @app.event("reaction_added")
+    def reaction_added(event):
+        tracker.on_reaction_added(event)
+
     @app.command("/reactcheck")
     def reactcheck(ack, command, respond):
         ack()
@@ -116,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.exit(str(e))
 
     if args.status:
-        print(format_status(tracker, tracker.statuses()))
+        print(format_status(tracker, tracker.statuses(), slack=False))
         return 0
     if args.once:
         sent = tracker.run_cycle(force=args.force)
