@@ -80,5 +80,5 @@ def resolve_channel(client, name_or_id: str) -> str:
         if ch["name"] == name:
             return ch["id"]
     raise ValueError(
-        f"Channel #{name} not found. If it's private, invite the bot to it first (/invite @ReactTracker)."
+        f"Channel #{name} not found. If it's private, invite the bot to it first (/invite @Hannah Bot 3000)."
     )

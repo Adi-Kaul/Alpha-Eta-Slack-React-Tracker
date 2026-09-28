@@ -1,11 +1,11 @@
 # Paste this at https://api.slack.com/apps -> Create New App -> From a manifest
 display_information:
-  name: ReactTracker
+  name: Hannah Bot 3000
   description: Nags people who haven't reacted to @channel announcements.
   background_color: "#4a154b"
 features:
   bot_user:
-    display_name: ReactTracker
+    display_name: Hannah Bot 3000
     always_online: true
   slash_commands:
     - command: /reactcheck

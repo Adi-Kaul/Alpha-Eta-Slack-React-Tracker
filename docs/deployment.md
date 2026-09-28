@@ -134,7 +134,7 @@ After finishing [setup.md](setup.md) on the machine, create `/etc/systemd/system
 
 ```ini
 [Unit]
-Description=ReactTracker Slack bot
+Description=Hannah Bot 3000 (Slack react tracker)
 After=network-online.target
 Wants=network-online.target
 

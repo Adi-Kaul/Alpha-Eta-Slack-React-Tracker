@@ -1,4 +1,4 @@
-# Using ReactTracker
+# Using Hannah Bot 3000
 
 This page is for club officers and members: how the bot behaves day to day, and how to use it.
 

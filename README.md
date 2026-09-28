@@ -1,4 +1,4 @@
-# ReactTracker 😱
+# Hannah Bot 3000 😱
 
 A Slack bot that makes sure everyone actually reads `@channel` announcements.
 

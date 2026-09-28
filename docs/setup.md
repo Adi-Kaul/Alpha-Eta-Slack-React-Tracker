@@ -48,7 +48,7 @@ The bot needs two secret tokens. Treat them like passwords, and never commit the
 In Slack, run this in **both** the announcements channel and `#eta-slacker-alert`:
 
 ```
-/invite @ReactTracker
+/invite @Hannah Bot 3000
 ```
 
 The bot can only read the announcements channel and post in the alert channel if it's a member of both.
@@ -157,7 +157,7 @@ DRY_RUN=1 python -m bot.main --once --force
 
 This is the best way to see exactly what everyone will get.
 
-1. Create two channels, `#bot-test` and `#bot-test-alerts`, and `/invite @ReactTracker` to both. (The bot never posts in the channel it watches, so it needs a separate one for reminders.)
+1. Create two channels, `#bot-test` and `#bot-test-alerts`, and `/invite @Hannah Bot 3000` to both. (The bot never posts in the channel it watches, so it needs a separate one for reminders.)
 2. Make the test config:
    ```bash
    cp config.test.example.yaml config.test.yaml

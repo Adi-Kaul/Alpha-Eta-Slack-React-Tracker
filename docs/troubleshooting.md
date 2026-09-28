@@ -15,7 +15,7 @@ The app is missing a permission. Usually the manifest was changed after the app 
 
 **`Channel #something not found`**
 - Check the spelling of `watch_channel` / `reminder_channel`. Leave out the `#`, or keep it; both work.
-- For **private** channels, the bot has to be invited before it can see them. Run `/invite @ReactTracker` in the channel.
+- For **private** channels, the bot has to be invited before it can see them. Run `/invite @Hannah Bot 3000` in the channel.
 - If you still can't find the problem, use the channel ID instead. In Slack, open the channel details and the ID (`C…`) is at the bottom.
 
 **`Unknown keys in config.yaml: ...`**
@@ -32,7 +32,7 @@ Use their email or user ID from `python -m bot.members` instead.
 ## Runtime problems
 
 **`Slack API error during check: not_in_channel`**
-The bot isn't a member of the announcements channel. Run `/invite @ReactTracker` there.
+The bot isn't a member of the announcements channel. Run `/invite @Hannah Bot 3000` there.
 
 **The bot never posts anything**
 Check each of these in order:
