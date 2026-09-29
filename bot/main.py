@@ -74,7 +74,8 @@ def format_status(tracker: Tracker, statuses: list[Status], slack: bool = True, 
                 stamp = f" — {'' if exact else 'by '}{fmt_time(at, slack)}" if at else " — before the bot was watching"
                 lines.append(f"      • {tracker.roster[u]}{stamp}")
         if st.missing:
-            lines.append(f":x: *Not yet ({len(st.missing)}):* " + ", ".join(tracker.roster[u] for u in st.missing))
+            lines.append(f":x: *Not yet ({len(st.missing)}):*")
+            lines.extend(f"      • {tracker.roster[u]}" for u in st.missing)
         blocks.append("\n".join(lines))
     footer = "\n\n_\"by\" = time the bot first noticed the reaction; the exact time wasn't captured._"
     text = "\n\n".join(blocks) if full else "\n".join(blocks)

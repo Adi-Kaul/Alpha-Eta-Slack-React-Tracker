@@ -338,7 +338,7 @@ def test_status_lists_who_reacted_with_times_and_who_is_missing():
     assert "2/3 reacted" in out
     assert "u1 — before the bot was watching" in out
     assert f"u2 — <!date^{int(NOON + 1.5 * HOUR)}^" in out
-    assert "*Not yet (1):* u3" in out
+    assert "*Not yet (1):*\n      • u3" in out
 
 
 def test_slash_commands_route_to_the_right_view():
